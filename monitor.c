@@ -5,6 +5,7 @@
 #include <unistd.h>
 
 int running = 1;
+int result_fd = 1; // default to stdout
 
 void handle_sigusr1(int sig) {
     FILE *fp = fopen("monitor_command.txt", "r");
@@ -22,22 +23,45 @@ void handle_sigusr1(int sig) {
     printf("[MONITOR] Received command: %s\n", cmd);
 
     if (strcmp(cmd, "list_hunts") == 0) {
-        system("ls -d */ | sed 's#/##'");
+        FILE *fp = popen("ls -d */ | sed 's#/##'", "r");
+        if (fp) {
+            char line[256];
+            while (fgets(line, sizeof(line), fp)) {
+                write(result_fd, line, strlen(line));
+            }
+            pclose(fp);
+        }
     } else if (strncmp(cmd, "list_treasures ", 15) == 0) {
         char hunt[128];
         sscanf(cmd + 15, "%s", hunt);
         char exec_cmd[256];
         snprintf(exec_cmd, sizeof(exec_cmd), "./treasure_manager --list %s", hunt);
-        system(exec_cmd);
+        FILE *fp = popen(exec_cmd, "r");
+        if (fp) {
+            char line[256];
+            while (fgets(line, sizeof(line), fp)) {
+                write(result_fd, line, strlen(line));
+            }
+            pclose(fp);
+        }
     } else if (strncmp(cmd, "view_treasure ", 14) == 0) {
         char hunt[128];
         int id;
         sscanf(cmd + 14, "%s %d", hunt, &id);
         char exec_cmd[256];
         snprintf(exec_cmd, sizeof(exec_cmd), "./treasure_manager --view %s %d", hunt, id);
-        system(exec_cmd);
+        FILE *fp = popen(exec_cmd, "r");
+        if (fp) {
+            char line[256];
+            while (fgets(line, sizeof(line), fp)) {
+                write(result_fd, line, strlen(line));
+            }
+            pclose(fp);
+        }
     } else {
-        printf("Unknown command in monitor: %s\n", cmd);
+        char msg[128];
+        snprintf(msg, sizeof(msg), "Unknown command in monitor: %s\n", cmd);
+        write(result_fd, msg, strlen(msg));
     }
 }
 
@@ -59,7 +83,10 @@ void setup_signal(int sig, void (*handler)(int)) {
     }
 }
 
-int main() {
+int main(int argc, char *argv[]) {
+    if (argc > 1) {
+        result_fd = atoi(argv[1]);
+    }
     printf("[MONITOR] Monitor started with PID %d\n", getpid());
 
     setup_signal(SIGUSR1, handle_sigusr1);

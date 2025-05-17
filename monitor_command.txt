@@ -1,1 +1,1 @@
-view_treasure Hunt001 1
+list_hunts

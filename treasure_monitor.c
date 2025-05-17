@@ -6,7 +6,9 @@
 #include <unistd.h>
 #include "common.h"
 
-void handle_command() {
+int result_fd = 1; // default to stdout
+
+void handle_command(int result_fd) {
     char buffer[MAX_COMMAND_LEN];
     FILE *fp = fopen(COMMAND_FILE, "r");
     if (!fp) return;
@@ -15,26 +17,65 @@ void handle_command() {
         buffer[strcspn(buffer, "\n")] = 0;
 
         if (strncmp(buffer, "list_hunts", 10) == 0) {
-            printf("Monitor: listing hunts...\n");
+            FILE *cmd_fp = popen("ls -d */ | sed 's#/##'", "r");
+            if (cmd_fp) {
+                char line[256];
+                while (fgets(line, sizeof(line), cmd_fp)) {
+                    write(result_fd, line, strlen(line));
+                }
+                pclose(cmd_fp);
+            }
         } else if (strncmp(buffer, "list_treasures", 14) == 0) {
             char hunt[64];
             sscanf(buffer, "list_treasures %s", hunt);
             char cmd[128];
             snprintf(cmd, sizeof(cmd), "./treasure_manager --list %s", hunt);
-            system(cmd);
+            FILE *cmd_fp = popen(cmd, "r");
+            if (cmd_fp) {
+                char line[256];
+                while (fgets(line, sizeof(line), cmd_fp)) {
+                    write(result_fd, line, strlen(line));
+                }
+                pclose(cmd_fp);
+            }
         } else if (strncmp(buffer, "view_treasure", 13) == 0) {
             char hunt[64];
             int id;
             sscanf(buffer, "view_treasure %s %d", hunt, &id);
             char cmd[128];
             snprintf(cmd, sizeof(cmd), "./treasure_manager --view %s %d", hunt, id);
-            system(cmd);
+            FILE *cmd_fp = popen(cmd, "r");
+            if (cmd_fp) {
+                char line[256];
+                while (fgets(line, sizeof(line), cmd_fp)) {
+                    write(result_fd, line, strlen(line));
+                }
+                pclose(cmd_fp);
+            }
         } else if (strcmp(buffer, "stop") == 0) {
-            printf("Monitor: stopping...\n");
+            char msg[] = "Monitor: stopping...\n";
+            write(result_fd, msg, strlen(msg));
             usleep(1000000);
             exit(0);
+        } else if (strncmp(buffer, "calculate_score ", 16) == 0) {
+            char hunt[64];
+            sscanf(buffer, "calculate_score %s", hunt);
+            char dat_path[128];
+            snprintf(dat_path, sizeof(dat_path), "%s/treasures.dat", hunt);
+            char cmd[256];
+            snprintf(cmd, sizeof(cmd), "./calculate_score %s", dat_path);
+            FILE *cmd_fp = popen(cmd, "r");
+            if (cmd_fp) {
+                char line[256];
+                while (fgets(line, sizeof(line), cmd_fp)) {
+                    write(result_fd, line, strlen(line));
+                }
+                pclose(cmd_fp);
+            }
         } else {
-            printf("Monitor: unknown command '%s'\n", buffer);
+            char msg[256];
+            snprintf(msg, sizeof(msg), "Monitor: unknown command '%s'\n", buffer);
+            write(result_fd, msg, strlen(msg));
         }
     }
 
@@ -53,16 +94,21 @@ void setup_signal(int sig, void (*handler)(int)) {
 }
 
 void signal_handler(int signo) {
-    handle_command();
+    handle_command(result_fd);
 }
 
-int main() {
+int main(int argc, char *argv[]) {
+    if (argc > 1) {
+        result_fd = atoi(argv[1]);
+    }
+
     setup_signal(SIG_LIST_HUNTS, signal_handler);
     setup_signal(SIG_LIST_TREASURES, signal_handler);
     setup_signal(SIG_VIEW_TREASURE, signal_handler);
     setup_signal(SIG_STOP_MONITOR, signal_handler);
 
-    printf("Monitor started with PID %d. Waiting for commands...\n", getpid());
+    // Optionally print to stderr for debugging
+    fprintf(stderr, "Monitor started with PID %d. Waiting for commands...\n", getpid());
 
     while (1) {
         pause();
