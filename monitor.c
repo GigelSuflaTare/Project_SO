@@ -5,7 +5,7 @@
 #include <unistd.h>
 
 int running = 1;
-int result_fd = 1; // default to stdout
+int result_fd = 1;
 
 void handle_sigusr1(int sig) {
     FILE *fp = fopen("monitor_command.txt", "r");

@@ -15,7 +15,7 @@ int monitor_exiting = 0;
 
 int monitor_pipe[2] = {-1, -1};
 
-void handle_monitor_exit(int sig); // <-- Add this line before start_monitor()
+void handle_monitor_exit(int sig);
 
 void start_monitor() {
     if (monitor_pid != -1) {
@@ -31,8 +31,7 @@ void start_monitor() {
         perror("fork failed");
         return;
     } else if (pid == 0) {
-        // Child: monitor
-        close(monitor_pipe[0]); // close read end
+        close(monitor_pipe[0]); 
         char fd_arg[16];
         snprintf(fd_arg, sizeof(fd_arg), "%d", monitor_pipe[1]);
         execl("./monitor", "./monitor", fd_arg, NULL);
@@ -40,7 +39,7 @@ void start_monitor() {
         exit(EXIT_FAILURE);
     } else {
         monitor_pid = pid;
-        close(monitor_pipe[1]); // parent closes write end
+        close(monitor_pipe[1]); 
         signal(SIGCHLD, handle_monitor_exit);
         printf("Monitor started (PID: %d).\n", monitor_pid);
     }
@@ -61,21 +60,18 @@ void calculate_scores() {
                 if (access(dat_path, F_OK) == 0) {
                     int fd[2];
                     if (pipe(fd) == -1) continue;
-                    // Set close-on-exec for both ends
                     fcntl(fd[0], F_SETFD, fcntl(fd[0], F_GETFD) | FD_CLOEXEC);
                     fcntl(fd[1], F_SETFD, fcntl(fd[1], F_GETFD) | FD_CLOEXEC);
                     pid_t pid = fork();
                     if (pid == 0) {
-                        // Child
-                        close(fd[0]); // Close unused read end
-                        dup2(fd[1], 1); // Redirect stdout to pipe
+                        close(fd[0]); 
+                        dup2(fd[1], 1); 
                         close(fd[1]);
                         execl("./calculate_score", "./calculate_score", dat_path, NULL);
                         perror("execl");
                         exit(1);
                     } else if (pid > 0) {
-                        // Parent
-                        close(fd[1]); // Close unused write end
+                        close(fd[1]);
                         char buf[1024];
                         ssize_t n;
                         printf("Scores for hunt %s:\n", entry->d_name);

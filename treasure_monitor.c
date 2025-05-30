@@ -6,7 +6,7 @@
 #include <unistd.h>
 #include "common.h"
 
-int result_fd = 1; // default to stdout
+int result_fd = 1;
 
 void handle_command(int result_fd) {
     char buffer[MAX_COMMAND_LEN];
@@ -107,7 +107,6 @@ int main(int argc, char *argv[]) {
     setup_signal(SIG_VIEW_TREASURE, signal_handler);
     setup_signal(SIG_STOP_MONITOR, signal_handler);
 
-    // Optionally print to stderr for debugging
     fprintf(stderr, "Monitor started with PID %d. Waiting for commands...\n", getpid());
 
     while (1) {
